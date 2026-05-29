@@ -65,6 +65,7 @@ docs/                        # 消融实验报告
 mkdir -p dataset/kuairand && cd dataset/kuairand
 wget https://zenodo.org/records/10439422/files/KuaiRand-Pure.tar.gz
 tar -xzvf KuaiRand-Pure.tar.gz
+mv KuaiRand-Pure kuairand-Pure   # 统一为小写，与代码内路径一致
 ```
 
 原始文件包含：
@@ -319,3 +320,11 @@ SMOKE=1 bash code/run_tiger_base_posttrain_suite_strict_eval3_20260513.sh  # 烟
 | DPO-only support-aware | 3 | 3.8825 | 纯 pairwise 不稳定 |
 | **SAGERec adaptive-trust GRPO** | **2** | **4.7383** | **最佳 (+4.3%)** |
 | SAGERec adaptive-trust GRPO | 3 | 4.3483 | iter3 过更新，建议 early stopping |
+
+
+
+# dev
+```
+cd /share/rongyu03/onemodel/Generate-Rec-LongGen
+
+```

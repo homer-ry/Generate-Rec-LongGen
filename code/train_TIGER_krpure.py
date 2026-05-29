@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import random
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -14,6 +15,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, Subset
+from tqdm import tqdm
 from transformers import T5Config, T5ForConditionalGeneration
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -336,13 +338,15 @@ def train_one_epoch(
     label_smoothing: float = 0.0,
     grad_clip_norm: float = 0.0,
     scheduler: Optional[optim.lr_scheduler.LambdaLR] = None,
+    log_interval: int = 50,
 ) -> Tuple[float, float]:
     model.train()
     total_loss = 0.0
     n_batches = 0
     total_weight = 0.0
 
-    for batch in train_loader:
+    pbar = tqdm(train_loader, desc="Training", unit="batch", leave=False)
+    for batch in pbar:
         input_ids = batch["history"].to(device, non_blocking=True)
         attention_mask = batch["attention_mask"].to(device, non_blocking=True)
         labels = batch["target"].to(device, non_blocking=True)  # (B, sid_depth)
@@ -373,6 +377,10 @@ def train_one_epoch(
         total_loss += loss.item()
         total_weight += float(sample_weight.mean().item())
         n_batches += 1
+
+        if log_interval > 0 and n_batches % log_interval == 0:
+            avg_loss = total_loss / n_batches
+            pbar.set_postfix(loss=f"{avg_loss:.4f}", lr=f"{optimizer.param_groups[0]['lr']:.6e}")
 
     return total_loss / max(1, n_batches), total_weight / max(1, n_batches)
 
@@ -793,6 +801,7 @@ def main():
     early_stop_counter = 0
 
     for epoch in range(config["num_epochs"]):
+        epoch_start = time.perf_counter()
         train_loss, train_weight_mean = train_one_epoch(
             model,
             train_loader,
@@ -802,15 +811,19 @@ def main():
             grad_clip_norm=float(config["grad_clip_norm"]),
             scheduler=scheduler,
         )
+        train_time = time.perf_counter() - epoch_start
+
         logging.info(
             f"[Epoch {epoch+1}/{config['num_epochs']}] "
             f"Train loss: {train_loss:.4f}, train_weight_mean={train_weight_mean:.4f}, "
             f"lr={optimizer.param_groups[0]['lr']:.6e}"
         )
         print(
-            f"[Epoch {epoch+1}] Train loss: {train_loss:.4f}, "
-            f"train_weight_mean={train_weight_mean:.4f}, "
-            f"lr={optimizer.param_groups[0]['lr']:.6e}"
+            f"[Epoch {epoch+1}/{config['num_epochs']}] "
+            f"Train loss: {train_loss:.4f} | "
+            f"weight_mean={train_weight_mean:.4f} | "
+            f"lr={optimizer.param_groups[0]['lr']:.2e} | "
+            f"time={train_time:.1f}s"
         )
 
         val_recalls, val_ndcgs = evaluate(
@@ -822,12 +835,17 @@ def main():
             device,
             label_smoothing=float(config["label_smoothing"]),
         )
+
+        # Format val metrics for display
+        recall_str = " ".join(f"R@{k}={v:.4f}" for k, v in sorted(val_recalls.items()))
+        ndcg_str = " ".join(f"N@{k}={v:.4f}" for k, v in sorted(val_ndcgs.items()))
+
         logging.info(f"Validation Recall: {val_recalls}")
         logging.info(f"Validation NDCG:   {val_ndcgs}")
         logging.info(f"Validation Loss:   {val_loss:.6f}")
         print(
-            f"[Epoch {epoch+1}] Val Recall: {val_recalls}, "
-            f"Val NDCG: {val_ndcgs}, Val Loss: {val_loss:.6f}"
+            f"[Epoch {epoch+1}/{config['num_epochs']}] "
+            f"Val Loss: {val_loss:.6f} | {recall_str} | {ndcg_str}"
         )
 
         current_metric, maximize_metric = select_validation_metric(
@@ -848,8 +866,8 @@ def main():
                 f"model saved to {config['save_path']}"
             )
             print(
-                f"[Epoch {epoch+1}] *** New best {config['selection_metric']}={best_metric:.6f}, "
-                f"model saved."
+                f"[Epoch {epoch+1}/{config['num_epochs']}] *** "
+                f"Best {config['selection_metric']}={best_metric:.6f}, model saved."
             )
         else:
             early_stop_counter += 1
@@ -858,9 +876,10 @@ def main():
                 f"Early stop counter: {early_stop_counter}"
             )
             print(
-                f"[Epoch {epoch+1}] {config['selection_metric']} not improved "
+                f"[Epoch {epoch+1}/{config['num_epochs']}] "
+                f"{config['selection_metric']} not improved "
                 f"({current_metric:.6f} {'<=' if maximize_metric else '>='} {best_metric:.6f}), "
-                f"early_stop_counter={early_stop_counter}/{config['early_stop']}"
+                f"early_stop={early_stop_counter}/{config['early_stop']}"
             )
             if early_stop_counter >= config["early_stop"]:
                 logging.info("Early stopping triggered.")

@@ -9,6 +9,18 @@
 ### 输入
 无（从 [Zenodo](https://zenodo.org/records/10439422) 下载）
 
+### 处理
+
+```bash
+mkdir -p dataset/kuairand && cd dataset/kuairand
+wget https://zenodo.org/records/10439422/files/KuaiRand-Pure.tar.gz
+tar -xzvf KuaiRand-Pure.tar.gz
+# tar 解压后目录名为 KuaiRand-Pure（大写），需重命名为小写以匹配代码内路径
+mv KuaiRand-Pure kuairand-Pure
+```
+
+> 注意：tar.gz 内顶层目录为 `KuaiRand-Pure/`（大写 K、大写 R），需 `mv` 为 `kuairand-Pure`（全小写），与项目中所有代码路径保持一致。
+
 ### 输出 → Step 2 输入
 
 ```text
