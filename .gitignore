@@ -1,0 +1,36 @@
+# Generated artifacts
+output/
+results/
+checkpoints/
+cache/
+code/cache_*/
+/external/
+data/raw/
+dataset/
+**/dataset/
+!code/preprocess/KuaiRandDataset.ipynb
+*.pt
+*.pth
+*.pkl
+*.ckpt
+*.log
+*.jsonl
+
+# Python/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local/private notes and helper files
+memory/
+demo_logs/
+.codex_private/
+TOOLS.md
+*.DS_Store
+.DS_Store
+
+# Environment files
+.env
+.venv/
+venv/
