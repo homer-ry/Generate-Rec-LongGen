@@ -1,0 +1,7 @@
+# Keep the Agent4Rec integration code-only in this release tree.
+datasets/
+storage/
+baseline/results/
+__pycache__/
+*.pyc
+.DS_Store
